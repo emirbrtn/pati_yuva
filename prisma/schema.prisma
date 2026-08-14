@@ -1,0 +1,321 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ─── Kullanıcılar ───────────────────────────────────────────
+model User {
+  id           String    @id @default(uuid())
+  name         String
+  firstName    String?
+  lastName     String?
+  email        String    @unique
+  phone        String?
+  passwordHash String
+  role         String    @default("USER")
+  avatarUrl    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime? @updatedAt
+  deletedAt    DateTime?
+
+  sessions            Session[]
+  favorites           Favorite[]
+  applications        AdoptionApplication[]
+  auditLogs           AuditLog[]            @relation("AuditActor")
+  notifications       Notification[]
+  shelterAdmins       ShelterAdmin[]
+  municipalityAdmins  MunicipalityAdmin[]
+}
+
+// ─── Oturumlar ──────────────────────────────────────────────
+model Session {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Barınaklar ─────────────────────────────────────────────
+model Shelter {
+  id                 String    @id @default(uuid())
+  slug               String    @unique
+  name               String
+  description        String?
+  city               String
+  district           String?
+  address            String?
+  phone              String?
+  email              String?
+  website            String?
+  workingHours       String?
+  imageUrl           String?
+  latitude           Float?
+  longitude          Float?
+  capacity           Int?
+  isDemo             Boolean   @default(false)
+  dataSourceType     String    @default("DEMO")
+  officialSourceUrl  String?
+  verified           Boolean   @default(false)
+  verificationStatus String    @default("UNVERIFIED")
+  verifiedAt         DateTime?
+  verifiedBy         String?
+  lastVerifiedAt     DateTime?
+  contactUnit        String?
+  services           String    @default("[\"sahiplendirme\"]")
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime? @updatedAt
+
+  animals           Animal[]
+  admins            ShelterAdmin[]
+  municipalityId    String?
+  municipality      Municipality?        @relation(fields: [municipalityId], references: [id])
+  applications      AdoptionApplication[]
+  auditLogs         AuditLog[]
+}
+
+// ─── Belediyeler ────────────────────────────────────────────
+model Municipality {
+  id                String    @id @default(uuid())
+  slug              String    @unique
+  name              String
+  city              String
+  district          String?
+  officialSourceUrl String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime? @updatedAt
+
+  shelters    Shelter[]
+  admins      MunicipalityAdmin[]
+  auditLogs   AuditLog[]
+}
+
+// ─── Hayvanlar ──────────────────────────────────────────────
+model Animal {
+  id                String    @id @default(uuid())
+  slug              String    @unique
+  name              String
+  species           String
+  breed             String?
+  gender            String
+  birthDate         String?
+  age               String?
+  ageGroup          String
+  size              String
+  color             String?
+  city              String
+  district          String?
+  description       String
+  character         String
+  energyLevel       String
+  healthDescription String?
+  specialNeeds      String?
+  adoptionStatus    String    @default("AVAILABLE")
+  sourceType        String    @default("SHELTER")
+  dataSourceType    String    @default("DEMO")
+  sourceUrl         String?
+  ownerName         String?
+  microchipNumber   String?
+  isDemo            Boolean   @default(false)
+
+  goodWithChildren  Int?
+  goodWithDogs      Int?
+  goodWithCats      Int?
+  homeSuitable      Int?
+  gardenRequired    Int?
+  vaccinated        Int?
+  neutered          Int?
+  microchipped      Int?
+  healthChecked     Int?
+
+  traits            String    @default("[]")
+  imageUrls         String    @default("[]")
+
+  lastVerifiedAt    DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime? @updatedAt
+
+  shelterId         String?
+  shelter           Shelter?  @relation(fields: [shelterId], references: [id])
+
+  favorites         Favorite[]
+  applications      AdoptionApplication[]
+  photos            AnimalPhoto[]
+  healthRecords     AnimalHealthRecord[]
+}
+
+// ─── Hayvan Fotoğrafları ────────────────────────────────────
+model AnimalPhoto {
+  id        String   @id @default(uuid())
+  animalId  String
+  url       String
+  alt       String?
+  isPrimary Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  animal Animal @relation(fields: [animalId], references: [id], onDelete: Cascade)
+}
+
+// ─── Hayvan Sağlık Kayıtları ────────────────────────────────
+model AnimalHealthRecord {
+  id          String   @id @default(uuid())
+  animalId    String
+  recordType  String
+  title       String
+  description String?
+  date        DateTime
+  vetName     String?
+  nextDate    DateTime?
+  createdAt   DateTime @default(now())
+
+  animal Animal @relation(fields: [animalId], references: [id], onDelete: Cascade)
+}
+
+// ─── Favoriler ──────────────────────────────────────────────
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String
+  animalId  String
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  animal Animal @relation(fields: [animalId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, animalId])
+}
+
+// ─── Sahiplendirme Başvuruları ──────────────────────────────
+model AdoptionApplication {
+  id                 String   @id @default(uuid())
+  animalId           String
+  userId             String
+  shelterId          String?
+
+  userName           String
+  userEmail          String
+  phone              String
+  city               String
+
+  houseType          String?
+  homeOwnership      String?
+  houseHold          String?
+  hasGarden          Boolean  @default(false)
+  previousExperience Boolean  @default(false)
+  hasOtherPets       Boolean  @default(false)
+  hasChildren        Boolean?
+  dailyCareTime      String?
+
+  reason             String
+  needsCoverage      String?
+  vetCoverage        String?
+  shelterAccess      String?
+  availableTime      String?
+  note               String?
+
+  status             String   @default("PENDING")
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  animal   Animal   @relation(fields: [animalId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+  shelter  Shelter? @relation(fields: [shelterId], references: [id])
+
+  @@index([animalId])
+  @@index([userId])
+  @@index([shelterId])
+}
+
+// ─── Barınak Yöneticileri ──────────────────────────────────
+model ShelterAdmin {
+  id        String   @id @default(uuid())
+  userId    String
+  shelterId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shelter Shelter @relation(fields: [shelterId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, shelterId])
+}
+
+// ─── Belediye Yöneticileri ─────────────────────────────────
+model MunicipalityAdmin {
+  id              String   @id @default(uuid())
+  userId          String
+  municipalityId  String
+  createdAt       DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  municipality Municipality @relation(fields: [municipalityId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, municipalityId])
+}
+
+// ─── Audit Log ──────────────────────────────────────────────
+model AuditLog {
+  id             String    @id @default(uuid())
+  actorId        String
+  actorName      String
+  actorRole      String
+  targetType     String
+  targetId       String
+  action         String
+  detail         String?
+  before         String?
+  after          String?
+  shelterId      String?
+  municipalityId String?
+  createdAt      DateTime  @default(now())
+
+  user         User          @relation("AuditActor", fields: [actorId], references: [id])
+  shelter      Shelter?      @relation(fields: [shelterId], references: [id])
+  municipality Municipality? @relation(fields: [municipalityId], references: [id])
+
+  @@index([targetType, targetId])
+  @@index([actorId])
+}
+
+// ─── Bildirimler ────────────────────────────────────────────
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  title     String
+  body      String?
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+}
+
+// ─── Kampanyalar / Sponsorluk ───────────────────────────────
+model Campaign {
+  id                 String    @id @default(uuid())
+  ownerId            String
+  ownerType          String
+  title              String
+  description        String
+  category           String
+  targetAmount       Float?
+  currentAmount      Float     @default(0)
+  startDate          DateTime?
+  endDate            DateTime?
+  status             String    @default("DRAFT")
+  verificationStatus String    @default("PENDING")
+  resultReport       String?
+  animalId           String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime? @updatedAt
+
+  @@index([ownerId, ownerType])
+}

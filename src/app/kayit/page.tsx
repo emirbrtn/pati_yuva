@@ -8,18 +8,35 @@ import { useAuth } from "@/context/AuthContext";
 export default function RegisterPage() {
   const { register } = useAuth();
   const router = useRouter();
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [kvkk, setKvkk] = useState(false);
+  const [terms, setTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
+
+    if (password !== passwordConfirm) {
+      setError("Şifreler eşleşmiyor.");
+      return;
+    }
+
+    if (!kvkk || !terms) {
+      setError("KVKK ve kullanım koşullarını kabul etmelisiniz.");
+      return;
+    }
+
     setSubmitting(true);
     try {
-      await register({ name, email, password });
+      const name = `${firstName} ${lastName}`.trim();
+      await register({ name, email, password, phone });
       router.push("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Kayıt başarısız.");
@@ -49,17 +66,30 @@ export default function RegisterPage() {
                 {error}
               </p>
             ) : null}
-            <label className="space-y-2 text-sm font-semibold text-stone-800">
-              <span>Ad Soyad</span>
-              <input
-                type="text"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                required
-                autoComplete="name"
-                className={inputClass}
-              />
-            </label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="space-y-2 text-sm font-semibold text-stone-800">
+                <span>Ad</span>
+                <input
+                  type="text"
+                  value={firstName}
+                  onChange={(event) => setFirstName(event.target.value)}
+                  required
+                  autoComplete="given-name"
+                  className={inputClass}
+                />
+              </label>
+              <label className="space-y-2 text-sm font-semibold text-stone-800">
+                <span>Soyad</span>
+                <input
+                  type="text"
+                  value={lastName}
+                  onChange={(event) => setLastName(event.target.value)}
+                  required
+                  autoComplete="family-name"
+                  className={inputClass}
+                />
+              </label>
+            </div>
             <label className="space-y-2 text-sm font-semibold text-stone-800">
               <span>E-posta</span>
               <input
@@ -68,6 +98,17 @@ export default function RegisterPage() {
                 onChange={(event) => setEmail(event.target.value)}
                 required
                 autoComplete="email"
+                className={inputClass}
+              />
+            </label>
+            <label className="space-y-2 text-sm font-semibold text-stone-800">
+              <span>Telefon (isteğe bağlı)</span>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                autoComplete="tel"
+                placeholder="05XX XXX XX XX"
                 className={inputClass}
               />
             </label>
@@ -83,9 +124,55 @@ export default function RegisterPage() {
                 className={inputClass}
               />
               <span className="block text-xs font-normal text-stone-500">
-                En az 6 karakter.
+                En az 6 karakter olmalıdır.
               </span>
             </label>
+            <label className="space-y-2 text-sm font-semibold text-stone-800">
+              <span>Şifre tekrar</span>
+              <input
+                type="password"
+                value={passwordConfirm}
+                onChange={(event) => setPasswordConfirm(event.target.value)}
+                required
+                minLength={6}
+                autoComplete="new-password"
+                className={inputClass}
+              />
+            </label>
+
+            <div className="space-y-3 pt-2">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={kvkk}
+                  onChange={(event) => setKvkk(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-stone-300 accent-emerald-700"
+                />
+                <span className="text-xs leading-5 text-stone-600">
+                  Kişisel verilerimin{" "}
+                  <Link href="/kvkk" className="font-semibold text-emerald-800 hover:underline">
+                    Aydınlatma Metni
+                  </Link>{" "}
+                  kapsamında işlenmesini kabul ediyorum.
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={terms}
+                  onChange={(event) => setTerms(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-stone-300 accent-emerald-700"
+                />
+                <span className="text-xs leading-5 text-stone-600">
+                 {" "}
+                  <Link href="/kullanim-kosullari" className="font-semibold text-emerald-800 hover:underline">
+                    Kullanım Koşulları
+                  </Link>{" "}
+                  &apos;ni okudum ve kabul ediyorum.
+                </span>
+              </label>
+            </div>
+
             <button
               type="submit"
               disabled={submitting}

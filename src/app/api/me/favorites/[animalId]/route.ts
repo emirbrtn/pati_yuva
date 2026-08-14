@@ -1,78 +1,66 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/server/auth";
-import { readDb, saveDb, withId } from "@/server/store";
-import { animals } from "@/data/animals";
+import { prisma } from "@/lib/db";
 
-async function unauthorized() {
-  return NextResponse.json(
-    { error: "Bu işlem için giriş yapmanız gerekiyor." },
-    { status: 401 }
-  );
-}
+type FavoriteParams = {
+  params: Promise<{ animalId: string }>;
+};
 
-async function favoriteIdsFor(userId: string) {
-  const db = await readDb();
-  return db.favorites
-    .filter((item) => item.userId === userId)
-    .map((item) => item.animalId);
-}
-
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ animalId: string }> }
-) {
+export async function POST(request: NextRequest, { params }: FavoriteParams) {
   const user = await getCurrentUser();
-  if (!user) return unauthorized();
+  if (!user) {
+    return NextResponse.json({ error: "Oturum bulunamadı." }, { status: 401 });
+  }
 
   const { animalId } = await params;
 
-  const animal = animals.find((item) => item.id === animalId);
+  // Hayvan var mı kontrol
+  const animal = await prisma.animal.findUnique({ where: { id: animalId } });
   if (!animal) {
-    return NextResponse.json(
-      { error: "Hayvan bulunamadı." },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: "Hayvan bulunamadı." }, { status: 404 });
   }
 
-  const db = await readDb();
-  const exists = db.favorites.some(
-    (item) => item.userId === user.id && item.animalId === animalId
-  );
-  if (exists) {
-    return NextResponse.json(
-      { error: "Bu hayvan zaten favorilerinizde." },
-      { status: 409 }
-    );
-  }
-
-  db.favorites.push({
-    id: withId(),
-    userId: user.id,
-    animalId,
-    createdAt: new Date().toISOString(),
+  // Zaten favoride mi
+  const existing = await prisma.favorite.findUnique({
+    where: { userId_animalId: { userId: user.id, animalId } },
   });
-  await saveDb();
 
-  return NextResponse.json(
-    { favoriteIds: await favoriteIdsFor(user.id) },
-    { status: 201 }
-  );
+  if (!existing) {
+    await prisma.favorite.create({
+      data: { userId: user.id, animalId },
+    });
+  }
+
+  const favorites = await prisma.favorite.findMany({
+    where: { userId: user.id },
+    select: { animalId: true },
+  });
+
+  return NextResponse.json({
+    favoriteIds: favorites.map((f) => f.animalId),
+    message: "Favorilere eklendi.",
+  });
 }
 
-export async function DELETE(
-  _request: Request,
-  { params }: { params: Promise<{ animalId: string }> }
-) {
+export async function DELETE(request: NextRequest, { params }: FavoriteParams) {
   const user = await getCurrentUser();
-  if (!user) return unauthorized();
+  if (!user) {
+    return NextResponse.json({ error: "Oturum bulunamadı." }, { status: 401 });
+  }
 
   const { animalId } = await params;
 
-  const db = await readDb();
-  db.favorites = db.favorites.filter(
-    (item) => item.userId !== user.id || item.animalId !== animalId
-  );
-  await saveDb();
+  await prisma.favorite.deleteMany({
+    where: { userId: user.id, animalId },
+  });
 
-  return NextResponse.json({ favoriteIds: await favoriteIdsFor(user.id) });
+  const favorites = await prisma.favorite.findMany({
+    where: { userId: user.id },
+    select: { animalId: true },
+  });
+
+  return NextResponse.json({
+    favoriteIds: favorites.map((f) => f.animalId),
+    message: "Favorilerden kaldırıldı.",
+  });
 }

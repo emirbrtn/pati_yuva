@@ -7,7 +7,7 @@ import { FavoriteButton } from "@/components/FavoriteButton";
 import { SourceBadge, StatusBadge } from "@/components/StatusBadge";
 import { healthFieldMeta, healthFieldList } from "@/lib/status";
 import { getShelterById } from "@/lib/relations";
-import { animals } from "@/data/animals";
+import { prisma } from "@/lib/db";
 
 type AnimalDetailPageProps = {
   params: Promise<{
@@ -15,17 +15,11 @@ type AnimalDetailPageProps = {
   }>;
 };
 
-export function generateStaticParams() {
-  return animals.map((animal) => ({
-    slug: animal.slug,
-  }));
-}
-
 export async function generateMetadata({
   params,
 }: AnimalDetailPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const animal = animals.find((item) => item.slug === slug);
+  const animal = await prisma.animal.findUnique({ where: { slug } });
 
   if (!animal) {
     return { title: "Hayvan bulunamadı | PatiYuva" };
@@ -41,13 +35,64 @@ export default async function AnimalDetailPage({
   params,
 }: AnimalDetailPageProps) {
   const { slug } = await params;
-  const animal = animals.find((item) => item.slug === slug);
+  const dbAnimal = await prisma.animal.findUnique({ where: { slug } });
 
-  if (!animal) {
+  if (!dbAnimal) {
     notFound();
   }
 
-  const shelter = getShelterById(animal.shelterId);
+  // DB animal'ı Animal tipine dönüştür
+  const parseBool = (v: number | null): boolean | null => {
+    if (v === null || v === undefined) return null;
+    return v === 1;
+  };
+
+  const animal = {
+    id: dbAnimal.id,
+    slug: dbAnimal.slug,
+    name: dbAnimal.name,
+    species: dbAnimal.species,
+    breed: dbAnimal.breed ?? undefined,
+    gender: dbAnimal.gender,
+    age: dbAnimal.age ?? undefined,
+    birthDate: dbAnimal.birthDate ?? undefined,
+    ageGroup: dbAnimal.ageGroup,
+    size: dbAnimal.size,
+    color: dbAnimal.color ?? undefined,
+    city: dbAnimal.city,
+    district: dbAnimal.district ?? undefined,
+    shelterId: dbAnimal.shelterId ?? undefined,
+    ownerName: dbAnimal.ownerName ?? undefined,
+    sourceType: dbAnimal.sourceType as "SHELTER" | "USER",
+    dataSourceType: dbAnimal.dataSourceType as "OFFICIAL" | "DEMO",
+    sourceUrl: dbAnimal.sourceUrl ?? undefined,
+    status: dbAnimal.adoptionStatus as any,
+    character: dbAnimal.character,
+    description: dbAnimal.description,
+    healthDescription: dbAnimal.healthDescription ?? undefined,
+    energyLevel: dbAnimal.energyLevel as any,
+    specialNeeds: dbAnimal.specialNeeds ?? undefined,
+    goodWithChildren: parseBool(dbAnimal.goodWithChildren),
+    goodWithDogs: parseBool(dbAnimal.goodWithDogs),
+    goodWithCats: parseBool(dbAnimal.goodWithCats),
+    homeSuitable: parseBool(dbAnimal.homeSuitable),
+    gardenRequired: parseBool(dbAnimal.gardenRequired),
+    traits: JSON.parse(dbAnimal.traits ?? "[]"),
+    health: {
+      vaccinated: parseBool(dbAnimal.vaccinated),
+      neutered: parseBool(dbAnimal.neutered),
+      microchipped: parseBool(dbAnimal.microchipped),
+      healthChecked: parseBool(dbAnimal.healthChecked),
+    },
+    microchipNumber: dbAnimal.microchipNumber ?? undefined,
+    imageUrls: JSON.parse(dbAnimal.imageUrls ?? "[]"),
+    createdAt: dbAnimal.createdAt.toISOString(),
+    updatedAt: dbAnimal.updatedAt?.toISOString(),
+    lastVerifiedAt: dbAnimal.lastVerifiedAt?.toISOString(),
+    isDemo: dbAnimal.isDemo,
+  };
+
+  const shelter = await getShelterById(animal.shelterId);
   const location = animal.district
     ? `${animal.city} / ${animal.district}`
     : animal.city;
@@ -138,7 +183,7 @@ export default async function AnimalDetailPage({
             </dl>
           </div>
 
-          <AdoptSection animal={animal} />
+          <AdoptSection animal={animal as any} />
         </div>
       </section>
 
@@ -165,7 +210,7 @@ export default async function AnimalDetailPage({
                     Özellikler
                   </h3>
                   <ul className="mt-4 flex flex-wrap gap-2">
-                    {animal.traits.map((trait) => (
+                    {animal.traits.map((trait: string) => (
                       <li
                         key={trait}
                         className="rounded-full border border-stone-200 bg-stone-50 px-3.5 py-1.5 text-sm font-medium text-stone-800"

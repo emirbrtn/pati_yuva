@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import {
   ageGroupList,
   speciesOptions,
@@ -7,20 +8,57 @@ import {
 } from "@/lib/filter-options";
 import { animalTraitList, healthFieldList, healthFieldMeta } from "@/lib/status";
 import { emptyFilters, isFiltersEmpty, type FiltersState } from "@/lib/filters";
-import { getCities, getDistrictsForCity, getShelterOptions } from "@/lib/relations";
+
+type FilterOption = { id: string; name: string };
 
 type FilterPanelProps = {
   value: FiltersState;
   onChange: (next: FiltersState) => void;
+  cities?: string[];
+  districts?: string[];
+  shelterOptions?: FilterOption[];
 };
 
 const fieldClass =
   "h-11 w-full rounded-xl border border-stone-300 bg-white px-3 text-sm text-stone-700 outline-none focus:border-emerald-700";
 
-export function FilterPanel({ value, onChange }: FilterPanelProps) {
-  const cities = getCities();
-  const districts = getDistrictsForCity(value.city);
-  const shelterOptions = getShelterOptions();
+export function FilterPanel({
+  value,
+  onChange,
+  cities: citiesProp,
+  districts: districtsProp,
+  shelterOptions: shelterOptionsProp,
+}: FilterPanelProps) {
+  const [cities, setCities] = useState<string[]>(citiesProp ?? []);
+  const [districts, setDistricts] = useState<string[]>(districtsProp ?? []);
+  const [shelterOptions, setShelterOptions] = useState<FilterOption[]>(shelterOptionsProp ?? []);
+
+  // İlk yüklemede verileri çek
+  useEffect(() => {
+    if (citiesProp && citiesProp.length > 0) return;
+    fetch("/api/filters")
+      .then((r) => r.json())
+      .then((data: { cities?: string[]; shelterOptions?: FilterOption[] }) => {
+        if (data.cities) setCities(data.cities);
+        if (data.shelterOptions) setShelterOptions(data.shelterOptions);
+      })
+      .catch(() => {});
+  }, [citiesProp]);
+
+  // Şehir değişince ilçeleri çek
+  useEffect(() => {
+    if (!value.city) {
+      setDistricts([]);
+      return;
+    }
+    if (districtsProp && districtsProp.length > 0 && value.city) return;
+    fetch(`/api/filters?city=${encodeURIComponent(value.city)}`)
+      .then((r) => r.json())
+      .then((data: { districts?: string[] }) => {
+        if (data.districts) setDistricts(data.districts);
+      })
+      .catch(() => {});
+  }, [value.city, districtsProp]);
 
   const update = (patch: Partial<FiltersState>) => onChange({ ...value, ...patch });
 

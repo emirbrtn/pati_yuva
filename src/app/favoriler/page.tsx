@@ -1,15 +1,36 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { AnimalGrid } from "@/components/AnimalGrid";
 import { useFavorites } from "@/hooks/useFavorites";
-import { getActiveAnimals } from "@/lib/relations";
+import type { Animal } from "@/types/animal";
 
 export default function FavoritesPage() {
   const { favoriteIds } = useFavorites();
-  const favoriteAnimals = getActiveAnimals().filter((animal) =>
-    favoriteIds.includes(animal.id)
-  );
+  const [animals, setAnimals] = useState<Animal[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (favoriteIds.length === 0) {
+      setAnimals([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    fetch("/api/animals?status=active")
+      .then((res) => res.json())
+      .then((data: { animals?: Animal[] }) => {
+        const all = data.animals ?? [];
+        const filtered = all.filter((a) => favoriteIds.includes(a.id));
+        setAnimals(filtered);
+      })
+      .catch(() => setAnimals([]))
+      .finally(() => setLoading(false));
+  }, [favoriteIds]);
+
+  const favoriteAnimals = animals;
 
   return (
     <main className="bg-[#fffaf4]">
@@ -29,7 +50,11 @@ export default function FavoritesPage() {
       </section>
       <section className="py-12 sm:py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          {favoriteAnimals.length === 0 ? (
+          {loading ? (
+            <p className="py-10 text-center text-sm text-stone-500">
+              Yükleniyor...
+            </p>
+          ) : favoriteAnimals.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-stone-300 bg-white px-6 py-16 text-center">
               <p className="text-4xl" aria-hidden="true">
                 💚

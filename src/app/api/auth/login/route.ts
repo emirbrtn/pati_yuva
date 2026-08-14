@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyPassword } from "@/server/password";
-import {
-  readDb,
-  saveDb,
-  toPublicUser,
-} from "@/server/store";
+import { prisma } from "@/lib/db";
 import {
   createSession,
   setSessionCookie,
+  toPublicUser,
 } from "@/server/auth";
 
 export async function POST(request: NextRequest) {
@@ -34,10 +31,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const db = await readDb();
-  const user = db.users.find(
-    (item) => item.email.toLocaleLowerCase("tr") === cleanEmail
-  );
+  const user = await prisma.user.findFirst({
+    where: {
+      email: cleanEmail,
+      deletedAt: null,
+    },
+  });
 
   if (!user || !verifyPassword(cleanPassword, user.passwordHash)) {
     return NextResponse.json(
@@ -47,8 +46,6 @@ export async function POST(request: NextRequest) {
   }
 
   const session = await createSession(user.id);
-  db.sessions.push(session);
-  await saveDb();
 
   const response = NextResponse.json({
     user: toPublicUser(user),

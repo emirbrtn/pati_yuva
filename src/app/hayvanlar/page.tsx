@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AnimalsBrowser } from "@/components/AnimalsBrowser";
-import { getActiveAnimals } from "@/lib/relations";
+import { getActiveAnimals, getCities } from "@/lib/relations";
 
 export const metadata: Metadata = {
   title: "Hayvanları Keşfet | PatiYuva",
@@ -15,6 +15,7 @@ type AnimalsPageProps = {
 
 export default async function AnimalsPage({ searchParams }: AnimalsPageProps) {
   const params = await searchParams;
+  const animals = await getActiveAnimals();
 
   const query = new URLSearchParams();
   const fields = [
@@ -63,7 +64,7 @@ export default async function AnimalsPage({ searchParams }: AnimalsPageProps) {
             }
           >
             <AnimalsBrowser
-              animals={getActiveAnimals()}
+              animals={animals}
               initialParams={query.toString()}
             />
           </Suspense>

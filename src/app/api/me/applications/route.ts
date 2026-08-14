@@ -1,151 +1,188 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/server/auth";
-import { readDb, saveDb, withId } from "@/server/store";
-import { animals } from "@/data/animals";
-
-const ACTIVE_STATUSES = [
-  "Beklemede",
-  "İnceleniyor",
-  "Görüşme Bekleniyor",
-  "Onaylandı",
-];
-
-function isRequiredString(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
-}
+import { prisma } from "@/lib/db";
+import { activeApplicationStatuses } from "@/types/adoption";
 
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) {
-    return NextResponse.json(
-      { error: "Bu işlem için giriş yapmanız gerekiyor." },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "Oturum bulunamadı." }, { status: 401 });
   }
 
-  const db = await readDb();
-  const applications = db.applications
-    .filter((item) => item.userId === user.id)
-    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+  const applications = await prisma.adoptionApplication.findMany({
+    where: { userId: user.id },
+    include: {
+      animal: {
+        select: {
+          id: true,
+          name: true,
+          species: true,
+          imageUrls: true,
+          slug: true,
+          city: true,
+          district: true,
+        },
+      },
+      shelter: {
+        select: {
+          id: true,
+          name: true,
+          city: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
 
-  return NextResponse.json({ applications });
+  const formatted = applications.map((a) => ({
+    ...a,
+    animal: a.animal
+      ? { ...a.animal, imageUrls: JSON.parse(a.animal.imageUrls ?? "[]") }
+      : a.animal,
+  }));
+
+  return NextResponse.json({ applications: formatted });
 }
 
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {
-    return NextResponse.json(
-      { error: "Sahiplenme başvurusu için giriş yapmanız gerekiyor." },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "Oturum bulunamadı." }, { status: 401 });
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { error: "Geçersiz istek gövdesi." },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Geçersiz istek." }, { status: 400 });
   }
 
   const data = (body ?? {}) as Record<string, unknown>;
-  const animalId = data.animalId;
+  const animalId = typeof data.animalId === "string" ? data.animalId : "";
 
-  if (!isRequiredString(animalId)) {
-    return NextResponse.json(
-      { error: "Hayvan seçimi zorunludur." },
-      { status: 400 }
-    );
+  if (!animalId) {
+    return NextResponse.json({ error: "Hayvan ID gerekli." }, { status: 400 });
   }
 
-  const animal = animals.find((item) => item.id === animalId);
+  // Hayvanı bul
+  const animal = await prisma.animal.findUnique({ where: { id: animalId } });
   if (!animal) {
-    return NextResponse.json(
-      { error: "Hayvan bulunamadı." },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: "Hayvan bulunamadı." }, { status: 404 });
   }
 
-  if (!isRequiredString(data.phone)) {
-    return NextResponse.json(
-      { error: "Telefon numarası zorunludur." },
-      { status: 400 }
-    );
-  }
-  if (!isRequiredString(data.city)) {
-    return NextResponse.json(
-      { error: "Şehir zorunludur." },
-      { status: 400 }
-    );
-  }
-  if (!isRequiredString(data.houseType)) {
-    return NextResponse.json(
-      { error: "Ev tipi zorunludur." },
-      { status: 400 }
-    );
-  }
-  if (!isRequiredString(data.reason)) {
-    return NextResponse.json(
-      { error: "Sahiplenme nedeni zorunludur." },
-      { status: 400 }
-    );
-  }
-  if (!isRequiredString(data.availableTime)) {
-    return NextResponse.json(
-      { error: "İlgilenme zamanı zorunludur." },
-      { status: 400 }
-    );
-  }
+  // Daha önce başvuru yapılmış mı
+  const existingApp = await prisma.adoptionApplication.findFirst({
+    where: {
+      userId: user.id,
+      animalId,
+      status: { in: ["PENDING", "REVIEWING", "APPROVED"] },
+    },
+  });
 
-  const db = await readDb();
-  const existing = db.applications.some(
-    (item) =>
-      item.userId === user.id &&
-      item.animalId === animalId &&
-      ACTIVE_STATUSES.includes(item.status)
-  );
-  if (existing) {
+  if (existingApp) {
     return NextResponse.json(
-      {
-        error:
-          "Bu hayvan için zaten aktif bir başvurunuz var. Sonucu 'Başvurularım' sayfasından takip edebilirsiniz.",
-      },
+      { error: "Bu hayvan için zaten bir başvurunuz bulunuyor." },
       { status: 409 }
     );
   }
 
-  const now = new Date().toISOString();
-  const application = {
-    id: withId(),
-    userId: user.id,
-    animalId,
-    animalName: animal.name,
-    userName: user.name,
-    phone: (data.phone as string).trim(),
-    email: user.email,
-    city: (data.city as string).trim(),
-    houseType: (data.houseType as string).trim(),
-    hasGarden: data.hasGarden === true,
-    previousExperience: data.previousExperience === true,
-    hasOtherPets: data.hasOtherPets === true,
-    reason: (data.reason as string).trim(),
-    availableTime: (data.availableTime as string).trim(),
-    note:
-      typeof data.note === "string" && data.note.trim()
-        ? data.note.trim()
-        : undefined,
-    status: "Beklemede" as const,
-    createdAt: now,
-    updatedAt: now,
-  };
+  const application = await prisma.adoptionApplication.create({
+    data: {
+      animalId,
+      userId: user.id,
+      shelterId: animal.shelterId || undefined,
+      userName: user.name,
+      userEmail: user.email,
+      phone: typeof data.phone === "string" ? data.phone : "",
+      city: typeof data.city === "string" ? data.city : "",
+      houseType: typeof data.houseType === "string" ? data.houseType : undefined,
+      hasGarden: data.hasGarden === true || data.hasGarden === "yes",
+      previousExperience: data.previousExperience === true || data.previousExperience === "yes",
+      hasOtherPets: data.hasOtherPets === true || data.hasOtherPets === "yes",
+      reason: typeof data.reason === "string" ? data.reason : "",
+      availableTime: typeof data.availableTime === "string" ? data.availableTime : undefined,
+      note: typeof data.note === "string" ? data.note : undefined,
+      status: "PENDING",
+    },
+  });
 
-  db.applications.push(application);
-  await saveDb();
+  // Audit log
+  await prisma.auditLog.create({
+    data: {
+      actorId: user.id,
+      actorName: user.name,
+      actorRole: user.role,
+      targetType: "APPLICATION",
+      targetId: application.id,
+      action: "APPLICATION_CREATED",
+      detail: `${user.name} -> ${animal.name} sahiplendirme başvurusu`,
+    },
+  });
 
-  return NextResponse.json(
-    { application, message: "Başvurunuz alındı." },
-    { status: 201 }
-  );
+  return NextResponse.json({
+    application,
+    message: "Başvurunuz alındı.",
+  }, { status: 201 });
+}
+
+export async function PATCH(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Oturum bulunamadı." }, { status: 401 });
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Geçersiz istek." }, { status: 400 });
+  }
+
+  const data = (body ?? {}) as Record<string, unknown>;
+  const applicationId = typeof data.applicationId === "string" ? data.applicationId : "";
+
+  if (!applicationId) {
+    return NextResponse.json({ error: "Başvuru ID gerekli." }, { status: 400 });
+  }
+
+  const application = await prisma.adoptionApplication.findUnique({
+    where: { id: applicationId },
+  });
+
+  if (!application) {
+    return NextResponse.json({ error: "Başvuru bulunamadı." }, { status: 404 });
+  }
+
+  if (application.userId !== user.id) {
+    return NextResponse.json({ error: "Bu başvuru size ait değil." }, { status: 403 });
+  }
+
+  if (!activeApplicationStatuses.includes(application.status as typeof activeApplicationStatuses[number])) {
+    return NextResponse.json(
+      { error: "Bu başvuru artık iptal edilemez." },
+      { status: 409 }
+    );
+  }
+
+  const updated = await prisma.adoptionApplication.update({
+    where: { id: applicationId },
+    data: { status: "CANCELLED" },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      actorId: user.id,
+      actorName: user.name,
+      actorRole: user.role,
+      targetType: "APPLICATION",
+      targetId: applicationId,
+      action: "APPLICATION_CANCELLED",
+      detail: `${user.name} başvurusunu iptal etti`,
+    },
+  });
+
+  return NextResponse.json({
+    application: updated,
+    message: "Başvurunuz iptal edildi.",
+  });
 }

@@ -2,11 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { ShelterGrid } from "@/components/ShelterGrid";
-import { getAnimalsByShelterId } from "@/lib/relations";
 import { includesNormalized } from "@/lib/text";
 import type { Shelter } from "@/types/shelter";
-
-const speciesOptions = ["Kedi", "Köpek", "Diğer"] as const;
 
 type SheltersBrowserProps = {
   shelters: Shelter[];
@@ -16,7 +13,6 @@ export function SheltersBrowser({ shelters }: SheltersBrowserProps) {
   const [search, setSearch] = useState("");
   const [city, setCity] = useState("");
   const [district, setDistrict] = useState("");
-  const [species, setSpecies] = useState("");
 
   const cities = useMemo(
     () => [...new Set(shelters.map((shelter) => shelter.city))].sort(),
@@ -49,20 +45,15 @@ export function SheltersBrowser({ shelters }: SheltersBrowserProps) {
         ].join(" ");
         if (!includesNormalized(haystack, query)) return false;
       }
-      if (species) {
-        const hosted = getAnimalsByShelterId(shelter.id);
-        if (!hosted.some((animal) => animal.species === species)) return false;
-      }
       return true;
     });
-  }, [shelters, city, district, search, species]);
+  }, [shelters, city, district, search]);
 
-  const hasFilters = Boolean(search || city || district || species);
+  const hasFilters = Boolean(search || city || district);
   const clearAll = () => {
     setSearch("");
     setCity("");
     setDistrict("");
-    setSpecies("");
   };
 
   const fieldClass =
@@ -70,7 +61,7 @@ export function SheltersBrowser({ shelters }: SheltersBrowserProps) {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <label className="sr-only" htmlFor="shelter-search">
           Barınaklarda ara
         </label>
@@ -109,19 +100,6 @@ export function SheltersBrowser({ shelters }: SheltersBrowserProps) {
           {districts.map((item) => (
             <option key={item} value={item}>
               {item}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="Türe göre filtrele"
-          value={species}
-          onChange={(event) => setSpecies(event.target.value)}
-          className={`${fieldClass} w-full`}
-        >
-          <option value="">Tüm türler</option>
-          {speciesOptions.map((item) => (
-            <option key={item} value={item}>
-              {item} barındıranlar
             </option>
           ))}
         </select>

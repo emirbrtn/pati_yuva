@@ -3,20 +3,15 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { Container } from "@/components/Container";
 import { ShelterAnimals } from "@/components/ShelterAnimals";
-import { getAnimalsByShelterId, getShelterBySlug, getShelterStats } from "@/lib/relations";
-import { shelters } from "@/data/shelters";
+import { getShelterBySlug, getShelterStats, getAnimalsByShelterId } from "@/lib/relations";
 
 type ShelterPageProps = {
   params: Promise<{ slug: string }>;
 };
 
-export function generateStaticParams() {
-  return shelters.map((shelter) => ({ slug: shelter.slug }));
-}
-
 export async function generateMetadata({ params }: ShelterPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const shelter = getShelterBySlug(slug);
+  const shelter = await getShelterBySlug(slug);
 
   if (!shelter) {
     return { title: "Barınak bulunamadı | PatiYuva" };
@@ -30,14 +25,14 @@ export async function generateMetadata({ params }: ShelterPageProps): Promise<Me
 
 export default async function ShelterPage({ params }: ShelterPageProps) {
   const { slug } = await params;
-  const shelter = getShelterBySlug(slug);
+  const shelter = await getShelterBySlug(slug);
 
   if (!shelter) {
     notFound();
   }
 
-  const stats = getShelterStats(shelter.id);
-  const animals = getAnimalsByShelterId(shelter.id);
+  const stats = await getShelterStats(shelter.id);
+  const animals = await getAnimalsByShelterId(shelter.id);
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
     `${shelter.name} ${shelter.city} ${shelter.district}`
   )}`;
@@ -180,7 +175,7 @@ export default async function ShelterPage({ params }: ShelterPageProps) {
                     {item.href ? (
                       <a
                         href={item.href}
-                        className={item.href.startsWith("mailto") ? "text-emerald-800 hover:text-emerald-950" : "text-emerald-800 hover:text-emerald-950"}
+                        className="text-emerald-800 hover:text-emerald-950"
                       >
                         {item.value}
                       </a>
@@ -211,15 +206,6 @@ export default async function ShelterPage({ params }: ShelterPageProps) {
                   className="text-sm font-semibold text-emerald-800 hover:text-emerald-950"
                 >
                   Resmi kaynağı görüntüle →
-                </a>
-              ) : shelter.website ? (
-                <a
-                  href={shelter.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm font-semibold text-emerald-800 hover:text-emerald-950"
-                >
-                  Barınağı tanıyın →
                 </a>
               ) : (
                 <span />

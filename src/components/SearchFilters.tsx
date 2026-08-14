@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ageGroupList, genderOptions, speciesOptions } from "@/lib/filter-options";
-import { getCities } from "@/lib/relations";
 
 export function SearchFilters() {
   const router = useRouter();
@@ -13,7 +12,16 @@ export function SearchFilters() {
   const [species, setSpecies] = useState("");
   const [ageGroup, setAgeGroup] = useState("");
   const [gender, setGender] = useState("");
-  const cities = getCities();
+  const [cities, setCities] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch("/api/filters")
+      .then((r) => r.json())
+      .then((data: { cities?: string[] }) => {
+        if (data.cities) setCities(data.cities);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();

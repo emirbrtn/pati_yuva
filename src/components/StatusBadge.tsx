@@ -11,6 +11,7 @@ export function StatusBadge({
   size = "sm",
 }: StatusBadgeProps) {
   const meta = animalStatusMeta[status];
+  if (!meta) return null;
   return (
     <span
       className={`inline-flex items-center rounded-full font-semibold ${

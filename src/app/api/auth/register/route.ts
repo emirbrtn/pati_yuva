@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hashPassword } from "@/server/password";
-import {
-  readDb,
-  saveDb,
-  withId,
-  toPublicUser,
-} from "@/server/store";
+import { prisma } from "@/lib/db";
 import {
   createSession,
   setSessionCookie,
+  toPublicUser,
 } from "@/server/auth";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -24,13 +20,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { name, email, password } = (body ?? {}) as Record<string, unknown>;
+  const { name, email, password, phone } = (body ?? {}) as Record<string, unknown>;
 
   const cleanName =
     typeof name === "string" ? name.trim().replace(/\s+/g, " ") : "";
   const cleanEmail =
     typeof email === "string" ? email.trim().toLocaleLowerCase("tr") : "";
   const cleanPassword = typeof password === "string" ? password : "";
+  const cleanPhone = typeof phone === "string" ? phone.trim() : undefined;
 
   if (cleanName.length < 2 || cleanName.length > 60) {
     return NextResponse.json(
@@ -51,11 +48,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const db = await readDb();
+  // Ad ve soyadı ayır
+  const nameParts = cleanName.split(" ");
+  const firstName = nameParts[0] ?? cleanName;
+  const lastName = nameParts.slice(1).join(" ") || undefined;
 
-  const existing = db.users.find(
-    (user) => user.email.toLocaleLowerCase("tr") === cleanEmail
-  );
+  const existing = await prisma.user.findUnique({
+    where: { email: cleanEmail },
+  });
+
   if (existing) {
     return NextResponse.json(
       { error: "Bu e-posta adresiyle bir hesap zaten mevcut." },
@@ -63,22 +64,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const now = new Date().toISOString();
-  const user = {
-    id: withId(),
-    name: cleanName,
-    email: cleanEmail,
-    role: "USER" as const,
-    createdAt: now,
-    passwordHash: hashPassword(cleanPassword),
-  };
-
-  db.users.push(user);
+  const user = await prisma.user.create({
+    data: {
+      name: cleanName,
+      firstName,
+      lastName,
+      email: cleanEmail,
+      phone: cleanPhone || undefined,
+      passwordHash: hashPassword(cleanPassword),
+      role: "USER",
+    },
+  });
 
   const session = await createSession(user.id);
-  db.sessions.push(session);
-
-  await saveDb();
 
   const response = NextResponse.json(
     {

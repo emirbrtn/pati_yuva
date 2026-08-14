@@ -1,22 +1,29 @@
 import { ButtonLink } from "@/components/ButtonLink";
-import { animals } from "@/data/animals";
+import { prisma } from "@/lib/db";
 
-export function Hero() {
-  const totalAnimals = animals.filter((a) => a.status !== "ADOPTED").length;
-  const cities = new Set(animals.map((a) => a.city)).size;
+export async function Hero() {
+  const totalAnimals = await prisma.animal.count({
+    where: { adoptionStatus: { not: "ADOPTED" } },
+  });
+
+  const cityResults = await prisma.animal.findMany({
+    select: { city: true },
+    distinct: ["city"],
+  });
+  const cities = cityResults.length;
 
   return (
     <section className="bg-[#fffaf4]">
-      <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-24">
+      <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-16 sm:grid-cols-[1.05fr_0.95fr] sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-24">
         <div>
           <p className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1.5 text-sm font-semibold text-emerald-800">
             AI destekli sahiplendirme platformu
           </p>
-          <h1 className="mt-5 max-w-3xl text-5xl font-bold leading-tight text-stone-950 sm:text-6xl">
+          <h1 className="mt-5 max-w-3xl text-4xl font-bold leading-tight text-stone-950 sm:text-5xl lg:text-6xl">
             Bir yuva arayan dostunu bul.
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-stone-700">
-            Türkiye’deki barınaklarda sahiplendirilmeyi bekleyen hayvanları
+            Türkiye&apos;deki barınaklarda sahiplendirilmeyi bekleyen hayvanları
             keşfet, yaşam koşullarına uygun dostunu seç ve ona sıcak bir yuva
             sun. PatiYuva, doğru hayvanın doğru insanla buluşmasını
             kolaylaştırır.

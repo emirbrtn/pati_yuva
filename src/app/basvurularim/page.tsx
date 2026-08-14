@@ -1,18 +1,30 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
-import type { AdoptionApplication } from "@/types/adoption";
+import type { AdoptionApplication, ApplicationStatus } from "@/types/adoption";
 
 const statusStyles: Record<string, string> = {
-  Beklemede: "bg-amber-100 text-amber-800",
-  "İnceleniyor": "bg-sky-100 text-sky-800",
-  "Görüşme Bekleniyor": "bg-violet-100 text-violet-800",
-  Onaylandı: "bg-emerald-100 text-emerald-800",
-  Reddedildi: "bg-red-100 text-red-700",
-  Tamamlandı: "bg-stone-200 text-stone-700",
+  PENDING: "bg-amber-100 text-amber-800",
+  REVIEWING: "bg-sky-100 text-sky-800",
+  APPROVED: "bg-emerald-100 text-emerald-800",
+  REJECTED: "bg-red-100 text-red-700",
+  CANCELLED: "bg-stone-200 text-stone-600",
+  COMPLETED: "bg-stone-200 text-stone-700",
 };
+
+const statusLabels: Record<ApplicationStatus, string> = {
+  PENDING: "Beklemede",
+  REVIEWING: "İnceleniyor",
+  APPROVED: "Onaylandı",
+  REJECTED: "Reddedildi",
+  CANCELLED: "İptal Edildi",
+  COMPLETED: "Tamamlandı",
+};
+
+const withdrawableStatuses: ApplicationStatus[] = ["PENDING", "REVIEWING"];
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("tr-TR", {
@@ -23,12 +35,14 @@ function formatDate(iso: string): string {
 }
 
 export default function ApplicationsPage() {
-  const { user, status } = useAuth();
+  const { user, status: authStatus } = useAuth();
   const [applications, setApplications] = useState<AdoptionApplication[]>([]);
   const [loading, setLoading] = useState(true);
+  const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (status !== "authenticated") return;
+    if (authStatus !== "authenticated") return;
     let active = true;
     fetch("/api/me/applications")
       .then((response) => response.json())
@@ -44,9 +58,31 @@ export default function ApplicationsPage() {
     return () => {
       active = false;
     };
-  }, [status]);
+  }, [authStatus]);
 
-  if (status === "loading") {
+  const handleWithdraw = useCallback(async (applicationId: string) => {
+    setWithdrawingId(applicationId);
+    try {
+      const res = await fetch("/api/me/applications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ applicationId }),
+      });
+
+      if (res.ok) {
+        setApplications((prev) =>
+          prev.map((a) =>
+            a.id === applicationId ? { ...a, status: "CANCELLED" as ApplicationStatus } : a
+          )
+        );
+      }
+    } finally {
+      setWithdrawingId(null);
+      setConfirmId(null);
+    }
+  }, []);
+
+  if (authStatus === "loading") {
     return (
       <main className="bg-[#fffaf4]">
         <section className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
@@ -99,76 +135,140 @@ export default function ApplicationsPage() {
               </Link>
             </div>
           ) : (
-            applications.map((application) => (
-              <div
-                key={application.id}
-                className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-lg font-bold text-stone-950">
-                      {application.animalName}
-                    </h2>
-                    <p className="mt-1 text-sm text-stone-600">
-                      {formatDate(application.createdAt)} · {application.phone}
-                    </p>
-                  </div>
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                      statusStyles[application.status] ?? "bg-stone-100 text-stone-700"
-                    }`}
-                  >
-                    {application.status}
-                  </span>
-                </div>
-                <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
-                  <div>
-                    <dt className="font-semibold text-stone-500">Şehir</dt>
-                    <dd className="mt-0.5 text-stone-800">{application.city}</dd>
-                  </div>
-                  <div>
-                    <dt className="font-semibold text-stone-500">Ev Tipi</dt>
-                    <dd className="mt-0.5 text-stone-800">
-                      {application.houseType}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="font-semibold text-stone-500">Bahçe</dt>
-                    <dd className="mt-0.5 text-stone-800">
-                      {application.hasGarden ? "Evet" : "Hayır"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="font-semibold text-stone-500">Deneyim</dt>
-                    <dd className="mt-0.5 text-stone-800">
-                      {application.previousExperience ? "Evet" : "Hayır"}
-                    </dd>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <dt className="font-semibold text-stone-500">
-                      Sahiplenme Nedeni
-                    </dt>
-                    <dd className="mt-0.5 text-stone-800">
-                      {application.reason}
-                    </dd>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <dt className="font-semibold text-stone-500">
-                      İlgilenme Zamanı
-                    </dt>
-                    <dd className="mt-0.5 text-stone-800">
-                      {application.availableTime}
-                    </dd>
-                  </div>
-                  {application.note ? (
-                    <div className="sm:col-span-2">
-                      <dt className="font-semibold text-stone-500">Not</dt>
-                      <dd className="mt-0.5 text-stone-800">{application.note}</dd>
+            applications.map((application) => {
+              const canWithdraw = withdrawableStatuses.includes(
+                application.status as ApplicationStatus
+              );
+              const isConfirming = confirmId === application.id;
+              const isWithdrawing = withdrawingId === application.id;
+
+              return (
+                <div
+                  key={application.id}
+                  className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm"
+                >
+                  <div className="flex items-start gap-4">
+                    {Array.isArray(application.animal?.imageUrls) && application.animal.imageUrls.length > 0 && (
+                      <Link
+                        href={`/hayvanlar/${application.animal.slug}`}
+                        className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-2xl"
+                      >
+                        <Image
+                          src={application.animal.imageUrls[0]}
+                          alt={application.animal.name}
+                          fill
+                          className="object-cover"
+                          sizes="80px"
+                        />
+                      </Link>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <h2 className="text-lg font-bold text-stone-950">
+                            {application.animalName}
+                          </h2>
+                          <p className="mt-1 text-sm text-stone-600">
+                            {formatDate(application.createdAt)} · {application.phone}
+                          </p>
+                        </div>
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                            statusStyles[application.status] ?? "bg-stone-100 text-stone-700"
+                          }`}
+                        >
+                          {statusLabels[application.status as ApplicationStatus] ?? application.status}
+                        </span>
+                      </div>
                     </div>
-                  ) : null}
-                </dl>
-              </div>
-            ))
+                  </div>
+                  <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
+                    <div>
+                      <dt className="font-semibold text-stone-500">Şehir</dt>
+                      <dd className="mt-0.5 text-stone-800">{application.city}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold text-stone-500">Ev Tipi</dt>
+                      <dd className="mt-0.5 text-stone-800">
+                        {application.houseType}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold text-stone-500">Bahçe</dt>
+                      <dd className="mt-0.5 text-stone-800">
+                        {application.hasGarden ? "Evet" : "Hayır"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold text-stone-500">Deneyim</dt>
+                      <dd className="mt-0.5 text-stone-800">
+                        {application.previousExperience ? "Evet" : "Hayır"}
+                      </dd>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <dt className="font-semibold text-stone-500">
+                        Sahiplenme Nedeni
+                      </dt>
+                      <dd className="mt-0.5 text-stone-800">
+                        {application.reason}
+                      </dd>
+                    </div>
+                    {application.availableTime ? (
+                      <div className="sm:col-span-2">
+                        <dt className="font-semibold text-stone-500">
+                          İlgilenme Zamanı
+                        </dt>
+                        <dd className="mt-0.5 text-stone-800">
+                          {application.availableTime}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {application.note ? (
+                      <div className="sm:col-span-2">
+                        <dt className="font-semibold text-stone-500">Not</dt>
+                        <dd className="mt-0.5 text-stone-800">{application.note}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
+
+                  {canWithdraw && (
+                    <div className="mt-5 border-t border-stone-100 pt-4">
+                      {isConfirming ? (
+                        <div className="flex items-center gap-3">
+                          <p className="text-sm text-stone-600">
+                            Bu başvuruyu iptal etmek istediğine emin misin?
+                          </p>
+                          <button
+                            type="button"
+                            disabled={isWithdrawing}
+                            onClick={() => handleWithdraw(application.id)}
+                            className="rounded-full bg-red-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+                          >
+                            {isWithdrawing ? "İptal ediliyor..." : "Evet, İptal Et"}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isWithdrawing}
+                            onClick={() => setConfirmId(null)}
+                            className="rounded-full border border-stone-200 bg-white px-4 py-1.5 text-xs font-semibold text-stone-600 transition hover:bg-stone-50 disabled:opacity-50"
+                          >
+                            Vazgeç
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmId(application.id)}
+                          className="rounded-full border border-red-200 bg-white px-4 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                        >
+                          Başvuruyu Geri Çek
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       </section>

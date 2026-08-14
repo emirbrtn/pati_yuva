@@ -14,7 +14,12 @@ import type { User } from "@/types/user";
 export type AuthStatus = "loading" | "authenticated" | "guest";
 
 export type LoginInput = { email: string; password: string };
-export type RegisterInput = { name: string; email: string; password: string };
+export type RegisterInput = {
+  name: string;
+  email: string;
+  password: string;
+  phone?: string;
+};
 
 type AuthContextValue = {
   user: User | null;
@@ -95,11 +100,11 @@ export function AuthProvider({
   );
 
   const register = useCallback(
-    async ({ name, email, password }: RegisterInput) => {
+    async ({ name, email, password, phone }: RegisterInput) => {
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, password, phone }),
       });
       const data = (await response.json()) as
         | { user?: User; error?: string }

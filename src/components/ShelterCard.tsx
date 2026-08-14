@@ -1,13 +1,17 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { ButtonLink } from "@/components/ButtonLink";
-import { getShelterStats } from "@/lib/relations";
 import type { Shelter } from "@/types/shelter";
 
-type ShelterCardProps = { shelter: Shelter };
+type ShelterCardProps = {
+  shelter: Shelter;
+  stats?: { total: number; cats: number; dogs: number; others: number };
+};
 
-export function ShelterCard({ shelter }: ShelterCardProps) {
-  const stats = getShelterStats(shelter.id);
+export function ShelterCard({ shelter, stats }: ShelterCardProps) {
+  const s = stats ?? { total: 0, cats: 0, dogs: 0, others: 0 };
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm transition hover:shadow-md">
       <Link
@@ -63,16 +67,16 @@ export function ShelterCard({ shelter }: ShelterCardProps) {
         </p>
         <div className="flex flex-wrap gap-2 text-xs font-medium text-stone-700">
           <span className="rounded-full bg-stone-100 px-3 py-1">
-            {stats.total} sahiplendirilebilir hayvan
+            {s.total} sahiplendirilebilir hayvan
           </span>
-          {stats.cats > 0 ? (
+          {s.cats > 0 ? (
             <span className="rounded-full bg-stone-100 px-3 py-1">
-              {stats.cats} kedi
+              {s.cats} kedi
             </span>
           ) : null}
-          {stats.dogs > 0 ? (
+          {s.dogs > 0 ? (
             <span className="rounded-full bg-stone-100 px-3 py-1">
-              {stats.dogs} köpek
+              {s.dogs} köpek
             </span>
           ) : null}
         </div>

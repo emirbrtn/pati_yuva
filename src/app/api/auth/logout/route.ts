@@ -1,16 +1,11 @@
 import { NextResponse } from "next/server";
-import {
-  clearSessionCookie,
-  destroySession,
-  getSessionToken,
-} from "@/server/auth";
-import { saveDb } from "@/server/store";
+import { getSessionToken, destroySession, clearSessionCookie } from "@/server/auth";
 
 export async function POST() {
   const token = await getSessionToken();
+
   if (token) {
     await destroySession(token);
-    await saveDb();
   }
 
   const response = NextResponse.json({ message: "Çıkış yapıldı." });

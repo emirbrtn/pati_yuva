@@ -1,17 +1,18 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { ButtonLink } from "@/components/ButtonLink";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { SourceBadge, StatusBadge } from "@/components/StatusBadge";
-import { getShelterNameById } from "@/lib/relations";
 import type { Animal } from "@/types/animal";
 
 type AnimalCardProps = {
   animal: Animal;
+  shelterName?: string;
 };
 
-export function AnimalCard({ animal }: AnimalCardProps) {
-  const shelterName = getShelterNameById(animal.shelterId);
+export function AnimalCard({ animal, shelterName }: AnimalCardProps) {
   const location = animal.district
     ? `${animal.district}, ${animal.city}`
     : animal.city;
@@ -50,7 +51,9 @@ export function AnimalCard({ animal }: AnimalCardProps) {
           <p className="text-sm font-medium text-stone-800">
             📍 {location}
           </p>
-          <p className="truncate text-sm text-stone-500">{shelterName}</p>
+          {shelterName && (
+            <p className="truncate text-sm text-stone-500">{shelterName}</p>
+          )}
           <div className="flex items-center gap-2">
             <SourceBadge source={animal.sourceType} />
             {animal.breed ? (

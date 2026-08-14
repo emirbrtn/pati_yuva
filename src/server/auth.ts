@@ -1,11 +1,7 @@
 import { cookies } from "next/headers";
 import type { NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
-import {
-  readDb,
-  toPublicUser,
-  type StoredSession,
-} from "@/server/store";
+import { prisma } from "@/lib/db";
 import type { User } from "@/types/user";
 
 export const SESSION_COOKIE = "patiyuva_session";
@@ -33,14 +29,18 @@ export function createSessionToken(): string {
   return randomBytes(32).toString("hex");
 }
 
-export async function createSession(userId: string): Promise<StoredSession> {
-  const db = await readDb();
-  const session: StoredSession = {
-    token: createSessionToken(),
-    userId,
-    expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
-  };
-  db.sessions.push(session);
+export async function createSession(userId: string) {
+  const token = createSessionToken();
+  const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+
+  const session = await prisma.session.create({
+    data: {
+      token,
+      userId,
+      expiresAt,
+    },
+  });
+
   return session;
 }
 
@@ -66,18 +66,42 @@ export async function getCurrentUser(): Promise<User | null> {
   const token = await getSessionToken();
   if (!token) return null;
 
-  const db = await readDb();
-  const session = db.sessions.find((item) => item.token === token);
+  const session = await prisma.session.findUnique({
+    where: { token },
+    include: { user: true },
+  });
+
   if (!session) return null;
-  if (Date.parse(session.expiresAt) < Date.now()) return null;
+  if (new Date(session.expiresAt) < new Date()) return null;
+  if (session.user.deletedAt) return null;
 
-  const user = db.users.find((item) => item.id === session.userId);
-  if (!user) return null;
-
-  return toPublicUser(user);
+  return toPublicUser(session.user);
 }
 
 export async function destroySession(token: string): Promise<void> {
-  const db = await readDb();
-  db.sessions = db.sessions.filter((item) => item.token !== token);
+  await prisma.session.deleteMany({
+    where: { token },
+  });
+}
+
+export function toPublicUser(user: {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  phone?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  createdAt: Date;
+}): User {
+  return {
+    id: user.id,
+    name: user.name,
+    firstName: user.firstName ?? undefined,
+    lastName: user.lastName ?? undefined,
+    email: user.email,
+    phone: user.phone ?? undefined,
+    role: user.role as User["role"],
+    createdAt: user.createdAt.toISOString(),
+  };
 }
