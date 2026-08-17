@@ -118,7 +118,7 @@ export default function ShelterAdminPage() {
 
       setApplications(appData.applications ?? []);
       setAnimals(animalData.animals ?? []);
-      setStats(statsData);
+      setStats(statsData.stats ? statsData : null);
     } catch {
       // sessiz
     } finally {
