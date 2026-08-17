@@ -22,6 +22,7 @@ export type User = {
   phone?: string;
   role: UserRole;
   avatarUrl?: string;
+  emailVerified?: string;
   createdAt: string;
   updatedAt?: string;
   deletedAt?: string;

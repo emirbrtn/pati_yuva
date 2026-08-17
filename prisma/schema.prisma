@@ -17,6 +17,11 @@ model User {
   passwordHash String
   role         String    @default("USER")
   avatarUrl    String?
+  emailVerified DateTime?
+  emailVerificationToken   String?
+  emailVerificationExpires DateTime?
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime? @updatedAt
   deletedAt    DateTime?

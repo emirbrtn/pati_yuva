@@ -92,6 +92,8 @@ export function toPublicUser(user: {
   phone?: string | null;
   firstName?: string | null;
   lastName?: string | null;
+  avatarUrl?: string | null;
+  emailVerified?: Date | null;
   createdAt: Date;
 }): User {
   return {
@@ -102,6 +104,8 @@ export function toPublicUser(user: {
     email: user.email,
     phone: user.phone ?? undefined,
     role: user.role as User["role"],
+    avatarUrl: user.avatarUrl ?? undefined,
+    emailVerified: user.emailVerified?.toISOString() ?? undefined,
     createdAt: user.createdAt.toISOString(),
   };
 }
