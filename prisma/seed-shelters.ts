@@ -7,9 +7,14 @@ const adapter = new PrismaLibSql({ url: `file:${dbPath}` });
 const prisma = new PrismaClient({ adapter });
 
 function slugify(text: string): string {
+  const turkishMap: Record<string, string> = {
+    ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u",
+    Ç: "C", Ğ: "G", İ: "I", Ö: "O", Ş: "S", Ü: "U",
+  };
   return text
     .toLowerCase()
-    .replace(/[^a-z0-9ğüşıöçİĞÜŞÖÇ]+/g, "-")
+    .replace(/[çğıöşüÇĞİÖŞÜ]/g, (c) => turkishMap[c] ?? c)
+    .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
 }
