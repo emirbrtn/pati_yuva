@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { AnimalForm } from "@/components/AnimalForm";
 
 type Animal = {
   id: string;
@@ -96,6 +97,11 @@ export default function ShelterAdminPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [animalMode, setAnimalMode] = useState<"list" | "create" | "edit">("list");
+  const [editingAnimal, setEditingAnimal] = useState<Animal | null>(null);
+  const [animalSaving, setAnimalSaving] = useState(false);
+  const [animalError, setAnimalError] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -139,6 +145,47 @@ export default function ShelterAdminPage() {
             a.id === applicationId ? { ...a, status: newStatus } : a
           )
         );
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleAnimalSubmit = async (data: Record<string, unknown>) => {
+    setAnimalSaving(true);
+    setAnimalError(null);
+    try {
+      const isEdit = animalMode === "edit" && editingAnimal;
+      const res = await fetch("/api/shelter-admin/animals", {
+        method: isEdit ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error ?? "İşlem başarısız.");
+      }
+      setAnimalMode("list");
+      setEditingAnimal(null);
+      fetchData();
+    } catch (err) {
+      setAnimalError(err instanceof Error ? err.message : "Bir hata oluştu.");
+    } finally {
+      setAnimalSaving(false);
+    }
+  };
+
+  const handleAnimalDelete = async (animalId: string) => {
+    setActionLoading(animalId);
+    try {
+      const res = await fetch("/api/shelter-admin/animals", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ animalId }),
+      });
+      if (res.ok) {
+        setAnimals((prev) => prev.filter((a) => a.id !== animalId));
+        setDeleteConfirm(null);
       }
     } finally {
       setActionLoading(null);
@@ -339,46 +386,120 @@ export default function ShelterAdminPage() {
 
         {tab === "animals" && (
           <div>
-            {animals.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-10 text-center">
-                <p className="text-sm text-stone-500">Hayvan bulunmuyor.</p>
-              </div>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {animals.map((animal) => (
-                  <Link
-                    key={animal.id}
-                    href={`/hayvanlar/${animal.slug}`}
-                    className="group rounded-2xl border border-stone-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition"
+            {animalMode === "list" && (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-sm text-stone-500">{animals.length} hayvan</p>
+                  <button
+                    type="button"
+                    onClick={() => { setAnimalMode("create"); setEditingAnimal(null); setAnimalError(null); }}
+                    className="rounded-full bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
                   >
-                    {animal.imageUrls?.[0] && (
-                      <div className="relative aspect-[4/3] overflow-hidden">
-                        <Image
-                          src={animal.imageUrls[0]}
-                          alt={animal.name}
-                          fill
-                          className="object-cover transition group-hover:scale-[1.03]"
-                          sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-                        />
+                    + Hayvan Ekle
+                  </button>
+                </div>
+
+                {animals.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-10 text-center">
+                    <p className="text-sm text-stone-500">Henüz hayvan eklenmemiş.</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {animals.map((animal) => (
+                      <div
+                        key={animal.id}
+                        className="group rounded-2xl border border-stone-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition"
+                      >
+                        <Link href={`/hayvanlar/${animal.slug}`} className="block">
+                          {animal.imageUrls?.[0] && (
+                            <div className="relative aspect-[4/3] overflow-hidden">
+                              <Image
+                                src={animal.imageUrls[0]}
+                                alt={animal.name}
+                                fill
+                                className="object-cover transition group-hover:scale-[1.03]"
+                                sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                              />
+                            </div>
+                          )}
+                          <div className="p-4">
+                            <div className="flex items-center justify-between">
+                              <h3 className="font-bold text-stone-950">{animal.name}</h3>
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                  statusStyles[animal.status] ?? "bg-stone-100 text-stone-700"
+                                }`}
+                              >
+                                {statusLabels[animal.status] ?? animal.status}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-xs text-stone-500">
+                              {animal.species} · {animal.breed ?? "Irk bilinmiyor"} · {animal.age}
+                            </p>
+                          </div>
+                        </Link>
+                        <div className="flex border-t border-stone-100">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingAnimal(animal);
+                              setAnimalMode("edit");
+                              setAnimalError(null);
+                            }}
+                            className="flex-1 py-2.5 text-center text-xs font-semibold text-stone-600 hover:bg-stone-50 transition"
+                          >
+                            Düzenle
+                          </button>
+                          {deleteConfirm === animal.id ? (
+                            <>
+                              <button
+                                type="button"
+                                disabled={actionLoading === animal.id}
+                                onClick={() => handleAnimalDelete(animal.id)}
+                                className="flex-1 py-2.5 text-center text-xs font-semibold text-red-600 hover:bg-red-50 transition border-l border-stone-100 disabled:opacity-50"
+                              >
+                                {actionLoading === animal.id ? "Siliniyor..." : "Evet, Sil"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteConfirm(null)}
+                                className="flex-1 py-2.5 text-center text-xs font-semibold text-stone-600 hover:bg-stone-50 transition border-l border-stone-100"
+                              >
+                                Vazgeç
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setDeleteConfirm(animal.id)}
+                              className="flex-1 py-2.5 text-center text-xs font-semibold text-red-600 hover:bg-red-50 transition border-l border-stone-100"
+                            >
+                              Sil
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    )}
-                    <div className="p-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-bold text-stone-950">{animal.name}</h3>
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                            statusStyles[animal.status] ?? "bg-stone-100 text-stone-700"
-                          }`}
-                        >
-                          {statusLabels[animal.status] ?? animal.status}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-xs text-stone-500">
-                        {animal.species} · {animal.breed ?? "Irk bilinmiyor"} · {animal.age}
-                      </p>
-                    </div>
-                  </Link>
-                ))}
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {(animalMode === "create" || animalMode === "edit") && (
+              <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
+                <h3 className="text-lg font-bold text-stone-950 mb-4">
+                  {animalMode === "create" ? "Yeni Hayvan Ekle" : "Hayvanı Düzenle"}
+                </h3>
+                {animalError && (
+                  <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{animalError}</p>
+                )}
+                <AnimalForm
+                  mode={animalMode}
+                  initialData={editingAnimal ? { ...editingAnimal, imageUrls: editingAnimal.imageUrls.join("\n") } : undefined}
+                  onSubmit={handleAnimalSubmit}
+                  onCancel={() => { setAnimalMode("list"); setEditingAnimal(null); setAnimalError(null); }}
+                  loading={animalSaving}
+                />
               </div>
             )}
           </div>
