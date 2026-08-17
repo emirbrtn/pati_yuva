@@ -78,6 +78,18 @@ type AuditLog = {
   createdAt: string;
 };
 
+type ShelterAdmin = {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userPhone?: string;
+  shelterId: string;
+  shelterName: string;
+  shelterCity: string;
+  createdAt: string;
+};
+
 type Tab = "overview" | "applications" | "shelters" | "users" | "audit";
 
 const statusLabels: Record<string, string> = {
@@ -124,6 +136,7 @@ export default function AdminPage() {
   const [shelters, setShelters] = useState<Shelter[]>([]);
   const [users, setUsers] = useState<ShelterUser[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [shelterAdmins, setShelterAdmins] = useState<ShelterAdmin[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [appFilter, setAppFilter] = useState("");
@@ -132,6 +145,10 @@ export default function AdminPage() {
   const [shelterSaving, setShelterSaving] = useState(false);
   const [shelterError, setShelterError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [assignShelterId, setAssignShelterId] = useState<string>("");
+  const [assignUserId, setAssignUserId] = useState<string>("");
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [assignError, setAssignError] = useState<string | null>(null);
 
   const fetchTab = useCallback(async (t: Tab) => {
     setLoading(true);
@@ -146,9 +163,14 @@ export default function AdminPage() {
         const data = await res.json();
         setApplications(data.applications ?? []);
       } else if (t === "shelters") {
-        const res = await fetch("/api/admin/shelters");
-        const data = await res.json();
-        setShelters(data.shelters ?? []);
+        const [shelterRes, adminRes] = await Promise.all([
+          fetch("/api/admin/shelters"),
+          fetch("/api/admin/shelter-admins"),
+        ]);
+        const shelterData = await shelterRes.json();
+        const adminData = await adminRes.json();
+        setShelters(shelterData.shelters ?? []);
+        setShelterAdmins(adminData.admins ?? []);
       } else if (t === "users") {
         const res = await fetch("/api/admin/users");
         const data = await res.json();
@@ -221,7 +243,50 @@ export default function AdminPage() {
       });
       if (res.ok) {
         setShelters((prev) => prev.filter((s) => s.id !== shelterId));
+        setShelterAdmins((prev) => prev.filter((a) => a.shelterId !== shelterId));
         setDeleteConfirm(null);
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleAssignAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assignShelterId || !assignUserId) return;
+    setAssignLoading(true);
+    setAssignError(null);
+    try {
+      const res = await fetch("/api/admin/shelter-admins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shelterId: assignShelterId, userId: assignUserId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error ?? "Atama başarısız.");
+      }
+      const data = await res.json();
+      setShelterAdmins((prev) => [...prev, data.admin]);
+      setAssignShelterId("");
+      setAssignUserId("");
+    } catch (err) {
+      setAssignError(err instanceof Error ? err.message : "Bir hata oluştu.");
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
+  const handleRemoveAdmin = async (adminId: string) => {
+    setActionLoading(adminId);
+    try {
+      const res = await fetch("/api/admin/shelter-admins", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminId }),
+      });
+      if (res.ok) {
+        setShelterAdmins((prev) => prev.filter((a) => a.id !== adminId));
       }
     } finally {
       setActionLoading(null);
@@ -568,6 +633,71 @@ export default function AdminPage() {
                   onCancel={() => { setShelterMode("list"); setEditingShelter(null); setShelterError(null); }}
                   loading={shelterSaving}
                 />
+              </div>
+            )}
+
+            {shelterMode === "list" && (
+              <div className="mt-6 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
+                <h3 className="text-lg font-bold text-stone-950 mb-1">Barınak Yetkilileri</h3>
+                <p className="text-xs text-stone-500 mb-4">Bir kullanıcıyı barınak yetkilisi olarak atayın veya kaldırın.</p>
+
+                <form onSubmit={handleAssignAdmin} className="flex flex-wrap gap-3 mb-4 p-4 rounded-xl bg-stone-50 border border-stone-200">
+                  <select
+                    value={assignShelterId}
+                    onChange={(e) => setAssignShelterId(e.target.value)}
+                    required
+                    className="flex-1 min-w-[200px] h-10 rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-700 outline-none focus:border-emerald-700"
+                  >
+                    <option value="">Barınak seçin</option>
+                    {shelters.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.city})</option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    value={assignUserId}
+                    onChange={(e) => setAssignUserId(e.target.value)}
+                    placeholder="Kullanıcı ID yapıştırın"
+                    required
+                    className="flex-1 min-w-[200px] h-10 rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-700 outline-none focus:border-emerald-700"
+                  />
+                  <button
+                    type="submit"
+                    disabled={assignLoading}
+                    className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+                  >
+                    {assignLoading ? "Atanıyor..." : "Ata"}
+                  </button>
+                </form>
+
+                {assignError && (
+                  <p className="mb-3 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{assignError}</p>
+                )}
+
+                <p className="text-xs text-stone-400 mb-2">Kullanıcı ID&apos;sini &quot;Kullanıcılar&quot; sekmesinden kopyalayabilirsiniz (tabloda görünmez, ancak API&apos;den alınabilir).</p>
+
+                {shelterAdmins.length === 0 ? (
+                  <p className="text-sm text-stone-500 py-4">Henüz barınak yetkilisi atanmamış.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {shelterAdmins.map((a) => (
+                      <div key={a.id} className="flex items-center justify-between rounded-xl border border-stone-200 bg-white px-4 py-3">
+                        <div>
+                          <p className="text-sm font-semibold text-stone-950">{a.userName}</p>
+                          <p className="text-xs text-stone-500">{a.userEmail} · {a.shelterName} ({a.shelterCity})</p>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={actionLoading === a.id}
+                          onClick={() => handleRemoveAdmin(a.id)}
+                          className="rounded-full border border-red-300 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          Kaldır
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
