@@ -199,13 +199,13 @@ export default async function ShelterPage({ params }: ShelterPageProps) {
             <iframe
               title={`${shelter.name} konum`}
               width="100%"
-              height="300"
+              height="350"
               style={{ border: 0 }}
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
               src={`https://www.google.com/maps?q=${encodeURIComponent(
-                `${shelter.name} ${shelter.city} ${shelter.district ?? ""}`
-              )}&output=embed`}
+                `${shelter.name} hayvan barınağı ${shelter.district ?? ""} ${shelter.city}`
+              )}&z=15&output=embed`}
               className="w-full rounded-2xl"
             />
           </div>
