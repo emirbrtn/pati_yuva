@@ -155,16 +155,83 @@ hedeflenmektedir.
 
 # 🛠️ Teknolojiler
 
-- **Next.js**
+- **Next.js** (App Router)
 - **React**
 - **TypeScript**
 - **Tailwind CSS**
-- **MongoDB / MongoDB Atlas**
+- **Prisma ORM** + **SQLite**
 - **Git & GitHub**
 
 ---
 
-# 🚀 Proje Durumu
+# 🚀 Kurulum
+
+### 1. Repo'yu clone et
+
+```bash
+git clone https://github.com/emirbrtn/pati_yuva.git
+cd pati_yuva
+```
+
+### 2. Bağımlılıkları kur
+
+```bash
+npm install
+```
+
+### 3. Environment dosyasını oluştur
+
+```bash
+cp .env.example .env
+```
+
+`.env` dosyasındaki değerleri kontrol et (varsayılan olarak SQLite kullanır, değiştirmene gerek yok).
+
+### 4. Veritabanını oluştur ve demo verileri yükle
+
+```bash
+npx prisma db push
+npx prisma db seed
+```
+
+### 5. Geliştirme sunucusunu başlat
+
+```bash
+npm run dev
+```
+
+Tarayıcıda `http://localhost:3000` adresini aç.
+
+---
+
+### Demo Hesapları
+
+| E-posta | Şifre | Rol |
+|---------|-------|-----|
+| admin@patiyuva.com | 123456 | Süper Yönetici |
+| barinak@patiyuva.com | 123456 | Barınak Yetkilisi |
+| kullanici@patiyuva.com | 123456 | Kullanıcı |
+
+---
+
+# 📁 Ortam Değişkenleri
+
+| Değişken | Açıklama | Gerekli mi? |
+|----------|----------|-------------|
+| `DATABASE_URL` | Veritabanı dosya yolu (Prisma CLI için) | Evet |
+| `NODE_ENV` | Ortam (development/production) | Hayır (varsayılan: development) |
+
+`.env.example` dosyasını referans al.
+
+---
+
+# 🔐 Güvenlik
+
+- `.env` dosyası `.gitignore`'da Listeleniyor — GitHub'a gönderilmez
+- `dev.db` dosyası `.gitignore`'da — veritabanı repo'da saklanmaz
+- Şifreler `scrypt` ile hash'lenir
+- Oturum tokenları rastgele üretilir (256-bit entropy)
+- Session cookie'leri httpOnly ve sameSite: lax
 
 **Aktif geliştirme / MVP**
 
