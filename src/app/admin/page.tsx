@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { ShelterForm } from "@/components/ShelterForm";
 
 type Overview = {
   stats: {
@@ -37,8 +38,16 @@ type Shelter = {
   id: string;
   slug: string;
   name: string;
+  description?: string;
   city: string;
   district?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  workingHours?: string;
+  imageUrl?: string;
+  capacity?: number;
   verified: boolean;
   verificationStatus: string;
   isDemo: boolean;
@@ -118,6 +127,11 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [appFilter, setAppFilter] = useState("");
+  const [shelterMode, setShelterMode] = useState<"list" | "create" | "edit">("list");
+  const [editingShelter, setEditingShelter] = useState<Shelter | null>(null);
+  const [shelterSaving, setShelterSaving] = useState(false);
+  const [shelterError, setShelterError] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const fetchTab = useCallback(async (t: Tab) => {
     setLoading(true);
@@ -167,6 +181,47 @@ export default function AdminPage() {
         setApplications((prev) =>
           prev.map((a) => (a.id === applicationId ? { ...a, status: newStatus } : a))
         );
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleShelterSubmit = async (data: Record<string, unknown>) => {
+    setShelterSaving(true);
+    setShelterError(null);
+    try {
+      const isEdit = shelterMode === "edit" && editingShelter;
+      const res = await fetch("/api/admin/shelters", {
+        method: isEdit ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error ?? "İşlem başarısız.");
+      }
+      setShelterMode("list");
+      setEditingShelter(null);
+      fetchTab("shelters");
+    } catch (err) {
+      setShelterError(err instanceof Error ? err.message : "Bir hata oluştu.");
+    } finally {
+      setShelterSaving(false);
+    }
+  };
+
+  const handleShelterDelete = async (shelterId: string) => {
+    setActionLoading(shelterId);
+    try {
+      const res = await fetch("/api/admin/shelters", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shelterId }),
+      });
+      if (res.ok) {
+        setShelters((prev) => prev.filter((s) => s.id !== shelterId));
+        setDeleteConfirm(null);
       }
     } finally {
       setActionLoading(null);
@@ -400,47 +455,120 @@ export default function AdminPage() {
         )}
 
         {tab === "shelters" && (
-          <div className="space-y-3">
-            {shelters.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-10 text-center">
-                <p className="text-sm text-stone-500">Barınak bulunmuyor.</p>
-              </div>
-            ) : (
-              shelters.map((s) => (
-                <div key={s.id} className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-bold text-stone-950">{s.name}</h3>
-                        {s.verified && (
-                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">DOĞRULANMIŞ</span>
-                        )}
-                        {s.isDemo && (
-                          <span className="rounded-full bg-stone-200 px-2 py-0.5 text-[10px] font-bold text-stone-600">DEMO</span>
-                        )}
-                      </div>
-                      <p className="text-xs text-stone-500">{s.city} · {s.district}</p>
-                    </div>
-                    <div className="flex items-center gap-4 text-xs text-stone-500">
-                      <span>{s.animalCount} hayvan</span>
-                      <span>{s.applicationCount} başvuru</span>
-                      <span>{s.adminCount} admin</span>
-                      <button
-                        type="button"
-                        disabled={actionLoading === s.id}
-                        onClick={() => handleShelterVerify(s.id, !s.verified)}
-                        className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                          s.verified
-                            ? "bg-stone-200 text-stone-700 hover:bg-stone-300"
-                            : "bg-emerald-600 text-white hover:bg-emerald-700"
-                        } disabled:opacity-50`}
-                      >
-                        {s.verified ? "Doğrulamayı Kaldır" : "Doğrula"}
-                      </button>
-                    </div>
-                  </div>
+          <div>
+            {shelterMode === "list" && (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-sm text-stone-500">{shelters.length} barınak</p>
+                  <button
+                    type="button"
+                    onClick={() => { setShelterMode("create"); setEditingShelter(null); setShelterError(null); }}
+                    className="rounded-full bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+                  >
+                    + Barınak Ekle
+                  </button>
                 </div>
-              ))
+
+                {shelters.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-10 text-center">
+                    <p className="text-sm text-stone-500">Barınak bulunmuyor.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {shelters.map((s) => (
+                      <div key={s.id} className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-bold text-stone-950">{s.name}</h3>
+                              {s.verified && (
+                                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">DOĞRULANMIŞ</span>
+                              )}
+                              {s.isDemo && (
+                                <span className="rounded-full bg-stone-200 px-2 py-0.5 text-[10px] font-bold text-stone-600">DEMO</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-stone-500">{s.city} · {s.district}</p>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-stone-500">
+                            <span>{s.animalCount} hayvan</span>
+                            <span>{s.applicationCount} başvuru</span>
+                            <span>{s.adminCount} admin</span>
+                            <button
+                              type="button"
+                              disabled={actionLoading === s.id}
+                              onClick={() => handleShelterVerify(s.id, !s.verified)}
+                              className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                                s.verified
+                                  ? "bg-stone-200 text-stone-700 hover:bg-stone-300"
+                                  : "bg-emerald-600 text-white hover:bg-emerald-700"
+                              } disabled:opacity-50`}
+                            >
+                              {s.verified ? "Doğrulamayı Kaldır" : "Doğrula"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingShelter(s);
+                                setShelterMode("edit");
+                                setShelterError(null);
+                              }}
+                              className="rounded-full border border-stone-300 px-3 py-1 text-xs font-semibold text-stone-700 hover:bg-stone-50"
+                            >
+                              Düzenle
+                            </button>
+                            {deleteConfirm === s.id ? (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={actionLoading === s.id}
+                                  onClick={() => handleShelterDelete(s.id)}
+                                  className="rounded-full bg-red-600 px-3 py-1 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                                >
+                                  {actionLoading === s.id ? "Siliniyor..." : "Evet, Sil"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeleteConfirm(null)}
+                                  className="rounded-full border border-stone-300 px-3 py-1 text-xs font-semibold text-stone-700 hover:bg-stone-50"
+                                >
+                                  Vazgeç
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setDeleteConfirm(s.id)}
+                                className="rounded-full border border-red-300 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+                              >
+                                Sil
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {(shelterMode === "create" || shelterMode === "edit") && (
+              <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
+                <h3 className="text-lg font-bold text-stone-950 mb-4">
+                  {shelterMode === "create" ? "Yeni Barınak Ekle" : "Barınağı Düzenle"}
+                </h3>
+                {shelterError && (
+                  <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{shelterError}</p>
+                )}
+                <ShelterForm
+                  mode={shelterMode}
+                  initialData={editingShelter ? { ...editingShelter, capacity: editingShelter.capacity != null ? String(editingShelter.capacity) : undefined } : undefined}
+                  onSubmit={handleShelterSubmit}
+                  onCancel={() => { setShelterMode("list"); setEditingShelter(null); setShelterError(null); }}
+                  loading={shelterSaving}
+                />
+              </div>
             )}
           </div>
         )}
