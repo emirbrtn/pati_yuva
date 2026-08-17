@@ -3,6 +3,7 @@ import Link from "next/link";
 const platformLinks = [
   { label: "Hayvanları Keşfet", href: "/hayvanlar" },
   { label: "Barınaklar", href: "/barinaklar" },
+  { label: "Sponsorlar", href: "/sponsorlar" },
   { label: "Nasıl Çalışır?", href: "/nasil-calisir" },
 ];
 

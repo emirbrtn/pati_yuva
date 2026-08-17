@@ -201,6 +201,12 @@ export function Header() {
               >
                 Başvurularım
               </Link>
+              <Link
+                href="/sponsorlar"
+                className="rounded-full border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 transition hover:border-emerald-700 hover:text-emerald-800"
+              >
+                Sponsorlar
+              </Link>
             </>
           )}
           {profileDropdown}
@@ -263,6 +269,16 @@ export function Header() {
                 <li>
                   <Link href="/basvurularim" onClick={() => setMobileOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm font-medium text-stone-700 hover:bg-stone-100 hover:text-emerald-800">
                     Başvurularım
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/sponsorlar" onClick={() => setMobileOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm font-medium text-stone-700 hover:bg-stone-100 hover:text-emerald-800">
+                    Sponsorlar
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/puanlarim" onClick={() => setMobileOpen(false)} className="block rounded-xl px-3 py-2.5 text-sm font-medium text-stone-700 hover:bg-stone-100 hover:text-emerald-800">
+                    ⭐ Puanlarım
                   </Link>
                 </li>
                 <li className="mt-2 border-t border-stone-100 pt-2">

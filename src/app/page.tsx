@@ -5,6 +5,7 @@ import { Hero } from "@/components/Hero";
 import { HowItWorks } from "@/components/HowItWorks";
 import { SearchFilters } from "@/components/SearchFilters";
 import { ShelterShowcase } from "@/components/ShelterShowcase";
+import { SponsorShowcase } from "@/components/SponsorShowcase";
 
 export default function Home() {
   return (
@@ -32,6 +33,7 @@ export default function Home() {
       </section>
       <FeaturedAnimals />
       <ShelterShowcase />
+      <SponsorShowcase />
       <HowItWorks />
       <Benefits />
     </>
