@@ -188,6 +188,28 @@ export default async function ShelterPage({ params }: ShelterPageProps) {
             </dl>
           </div>
 
+          <div className="mt-8 rounded-3xl border border-stone-200 bg-white p-4 shadow-sm overflow-hidden">
+            <div className="flex items-center gap-2 mb-3 px-2">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-emerald-700" aria-hidden="true">
+                <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+              <p className="text-sm font-semibold text-stone-700">Konum</p>
+            </div>
+            <iframe
+              title={`${shelter.name} konum`}
+              width="100%"
+              height="300"
+              style={{ border: 0 }}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              src={`https://www.google.com/maps?q=${encodeURIComponent(
+                `${shelter.name} ${shelter.city} ${shelter.district ?? ""}`
+              )}&output=embed`}
+              className="w-full rounded-2xl"
+            />
+          </div>
+
           <div className="mt-10 space-y-6">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
