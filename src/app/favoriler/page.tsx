@@ -19,18 +19,14 @@ export default function FavoritesPage() {
     }
 
     setLoading(true);
-    fetch("/api/animals?status=active")
+    fetch("/api/me/favorites")
       .then((res) => res.json())
       .then((data: { animals?: Animal[] }) => {
-        const all = data.animals ?? [];
-        const filtered = all.filter((a) => favoriteIds.includes(a.id));
-        setAnimals(filtered);
+        setAnimals(data.animals ?? []);
       })
       .catch(() => setAnimals([]))
       .finally(() => setLoading(false));
   }, [favoriteIds]);
-
-  const favoriteAnimals = animals;
 
   return (
     <main className="bg-[#fffaf4]">
@@ -54,7 +50,7 @@ export default function FavoritesPage() {
             <p className="py-10 text-center text-sm text-stone-500">
               Yükleniyor...
             </p>
-          ) : favoriteAnimals.length === 0 ? (
+          ) : animals.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-stone-300 bg-white px-6 py-16 text-center">
               <p className="text-4xl" aria-hidden="true">
                 💚
@@ -74,7 +70,7 @@ export default function FavoritesPage() {
               </Link>
             </div>
           ) : (
-            <AnimalGrid animals={favoriteAnimals} />
+            <AnimalGrid animals={animals} />
           )}
         </div>
       </section>

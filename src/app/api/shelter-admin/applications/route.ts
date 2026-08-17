@@ -118,6 +118,19 @@ export async function PATCH(request: NextRequest) {
     data: { status: newStatus },
   });
 
+  if (newStatus === "APPROVED") {
+    const app = await prisma.adoptionApplication.findUnique({
+      where: { id: applicationId },
+      select: { animalId: true },
+    });
+    if (app) {
+      await prisma.animal.update({
+        where: { id: app.animalId },
+        data: { adoptionStatus: "ADOPTED" },
+      });
+    }
+  }
+
   await prisma.auditLog.create({
     data: {
       actorId: ctx.user.id,

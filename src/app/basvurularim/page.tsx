@@ -166,7 +166,7 @@ export default function ApplicationsPage() {
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <h2 className="text-lg font-bold text-stone-950">
-                            {application.animalName}
+                            {application.animal?.name ?? application.animalName}
                           </h2>
                           <p className="mt-1 text-sm text-stone-600">
                             {formatDate(application.createdAt)} · {application.phone}

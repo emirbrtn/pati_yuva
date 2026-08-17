@@ -25,12 +25,13 @@ export default function AccountSettingsPage() {
 
     const formData = new FormData(event.currentTarget as HTMLFormElement);
     const name = String(formData.get("name") ?? "");
+    const phone = String(formData.get("phone") ?? "");
 
     try {
       const response = await fetch("/api/me/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, phone }),
       });
 
       if (!response.ok) {
